@@ -1,0 +1,8 @@
+http:
+  port: '8081'
+
+twilio:
+  host: "training4-american-api-sahibbhatia.us-e2.cloudhub.io"
+  port: "80"
+  basepath: "/"
+  protocol: "HTTP"

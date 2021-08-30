@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:x12="http://www.mulesoft.org/schema/mule/x12"
+	xmlns:twilio="http://www.mulesoft.org/schema/mule/twilio" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/twilio http://www.mulesoft.org/schema/mule/twilio/current/mule-twilio.xsd
+http://www.mulesoft.org/schema/mule/x12 http://www.mulesoft.org/schema/mule/x12/current/mule-x12.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<salesforce:sfdc-config name="Salesforce_Config1_basic" doc:name="Salesforce Config" doc:id="c05fb577-86ac-4d32-a106-4bbf3a3c5369" >
+		<salesforce:basic-connection username="sahib_bhatia02@yahoo.com" password="sahib02101997" securityToken="qhcHR4hqEOdqHNJt4dAJFXue" maxEntries="100"/>
+	</salesforce:sfdc-config>
+	<flow name="PDF_to_BASE64" doc:id="74d1861a-8a6a-45e9-929c-f95d9fe1ad49" >
+		<http:listener doc:name="Listener" doc:id="a91ac92d-27c9-4ac3-af87-f492a6e512c4" config-ref="HTTP_Listener_config" path="/usecase1/toBase" allowedMethods="GET"/>
+		<file:read doc:name="Read" doc:id="665bb6b5-72fe-4d65-b587-781705c7f638" config-ref="File_Config" path="C:\Users\sahibbhatia\Desktop\UseCases\inputs\input.pdf" outputMimeType="application/pdf"/>
+		<ee:transform doc:name="Transform Message" doc:id="0cab4b44-2ab2-41ed-8e78-b63120211af8" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::core::Binaries
+output text/plain
+---
+toBase64(payload as Binary)]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-payload value="#[payload]" doc:name="Set Payload" doc:id="a61fa5a1-bc52-4998-9643-580f54bf4940" mimeType="text/plain"/>
+		<file:write doc:name="Write" doc:id="4e99ab15-a6fa-4f6c-9f41-e505e60ce6cf" config-ref="File_Config" path="C:\Users\sahibbhatia\Desktop\UseCases\outputs\outputBase64.txt"/>
+		<error-handler>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="461bffd5-1767-4e03-aefe-74efd8c1bd48" >
+				<ee:transform doc:name="Transform Message" doc:id="cd2e36d9-c5e7-48a6-9889-97f562e7d6eb" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="BASE64_to_PDF" doc:id="1b799c1f-1c43-4a54-a0bd-4ab227a2d9a6" >
+		<http:listener doc:name="Listener" doc:id="1fd9b530-36b1-4bff-b7f0-4e37033aa127" config-ref="HTTP_Listener_config" path="/usecase1/topdf" allowedMethods="POST" outputMimeType="text/plain"/>
+		<ee:transform doc:name="Transform Message" doc:id="6949bfeb-ad43-4f17-86ea-879df50b4149" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::core::Binaries
+output multipart/form-data
+---
+{
+    parts:{
+        test:{
+            headers:{
+                "Content-Type":"application/pdf"
+            },
+            content: fromBase64(payload as String)
+            },
+        }
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<set-payload value="#[payload]" doc:name="Set Payload" doc:id="f22362b8-d54e-4c1e-8755-48aacc2c10bb" mimeType="application/pdf"/>
+		<file:write doc:id="07692b52-daaf-43e3-b00b-2d47e86226e7" config-ref="File_Config" path="C:\Users\sahibbhatia\Desktop\UseCases\outputs\outputPDF.pdf"/>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="24580ed5-7ec1-42b8-8d78-1b8dbb458a35" >
+				<ee:transform doc:name="Transform Message" doc:id="f62ac36d-875a-49a4-821a-eb49b5eba239" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="usecase2a" doc:id="608baf1e-3c45-484c-abe8-003aed4fd41d" >
+		<salesforce:new-object-listener objectType="Contact" doc:name="On New Object" doc:id="ce7627a4-865b-401b-a825-6d311022f93b" config-ref="Salesforce_Config1_basic">
+			<scheduling-strategy >
+				<fixed-frequency />
+			</scheduling-strategy>
+		</salesforce:new-object-listener>
+		<ee:transform doc:name="Transform Message" doc:id="9571169a-414c-4623-bf09-c6fb2b2bfcc1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	Name : payload.Name,
+	Phone : payload.Phone
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="c9209f2a-400c-4cc7-bd8a-511512a472cf" message="#[payload]" />
+		<db:insert doc:id="17b886e0-896a-4888-a59d-e650e7233f47" config-ref="Database_Config">
+			<db:sql ><![CDATA[Insert into Contacts (Name, Phone) values (:Name, :Phone)]]></db:sql>
+			<db:input-parameters ><![CDATA[#[payload]]]></db:input-parameters>
+		</db:insert>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="3db6d64e-c8b3-4e0b-8664-04ba41688aab" >
+				<ee:transform doc:name="Transform Message" doc:id="ad0835db-44df-4892-a3dd-a2ad9b7edd77" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="usecase2" doc:id="6c3354a4-6b9a-45cd-88a6-6ee9f24944aa">
+		<http:listener doc:name="Listener" doc:id="240e100f-a6b6-4ad8-b912-6ed363db283c" config-ref="HTTP_Listener_config" path="/usecase2" />
+		<salesforce:query doc:id="90e8d24a-eb6b-4230-9e1d-b606db496aea" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query><![CDATA[SELECT LastName, FirstName FROM Contact]]></salesforce:salesforce-query>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="fa87690e-b440-407c-8e17-873fd624ade7">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="bfd94d15-3a36-4b34-8c14-680df7eca64a" >
+				<ee:transform doc:name="Transform Message" doc:id="873b32cd-cb88-4e54-beae-ef2248534177" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="usecase3" doc:id="f447ccbe-72af-4513-9f95-90a7d1a8e81a" >
+		<http:listener doc:name="Listener" doc:id="512aea08-2876-4eba-976a-50202dd57120" config-ref="HTTP_Listener_config" path="/usecase3"/>
+		<ee:transform doc:name="Transform Message" doc:id="7c7d1cfd-7274-4ba0-8ba5-d24cd827095c" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/x-www-form-urlencoded
+---
+{
+	From: "+13134622904",
+	To: "+918199067755",
+	Body: "Welcome to Apisero, Use Case " ++ attributes.queryParams.usecase as String ++ " Works"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<twilio:create20100401-accounts-messagesjson-by-account-sid doc:name="Create Message" doc:id="3171057d-aba1-4be0-a8b9-bf42af0edeb6" config-ref="Twilio_Connector_Config" accountSid="AC31ba2ff46e19766f4a4c53ec8c527be3"/>
+		<ee:transform doc:name="Transform Message" doc:id="a410b98c-b4be-4348-a01d-efee70826d41" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message" : "Message Sent",
+	"data" : payload	
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="956342a8-c065-48e7-b161-38abbf41ff80" >
+				<ee:transform doc:name="Transform Message" doc:id="e7f5a017-6556-4439-86fd-942be9e749d6" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="usecase4" doc:id="69f39ccf-49a9-4f7d-8bdf-357b0d33ced1" >
+		<set-payload value="Hello World for use case 4" doc:name="Set Payload" doc:id="bcd8e6bb-65a5-4604-8d1b-c52c5af6b2b0" />
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="fe83c85c-5100-4177-9cb2-31e2fb81094d" >
+				<ee:transform doc:name="Transform Message" doc:id="43d58cde-a30c-40b7-bdca-067474377d16" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="usecase5" doc:id="8ac0357e-c916-46f1-b1fc-dd6164693e95" >
+		<http:request method="GET" doc:name="Request" doc:id="614cbc39-f0ff-40b0-abf2-08444fa89a59" path="/usecase3" config-ref="HTTP_Request_configuration">
+			<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"usecase" : "5"
+}]]]></http:query-params>
+		</http:request>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="fba721f5-32e4-4e54-b90b-03a791a7a05e" >
+				<ee:transform doc:name="Transform Message" doc:id="8fdaa286-da74-4532-80a5-543dfd48c3f3" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+	<flow name="usecase6" doc:id="b2843be4-fd21-4338-9c37-93588df59271" >
+		<http:listener doc:name="Listener" doc:id="a242f668-236c-4719-b8b1-301ba9ad9f82" config-ref="HTTP_Listener_config" path="/usecase6" allowedMethods="POST" outputMimeType="application/json"/>
+		<logger level="INFO" doc:name="Logger" doc:id="fb5ee97c-c570-49c1-8d01-de7b8334149f" />
+		<ee:transform doc:name="Transform Message" doc:id="6a1c0771-103c-43a0-978e-0bc7f609520d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/dw
+---
+{
+	"TransactionSets": {
+		"v004050": {
+			"837": [{
+				Heading: {
+					"0100_BHT": {
+						BHT02: payload.AccountNumber,
+						BHT01: payload.BillingState
+					}
+				},
+				Detail: {
+					"2000_Loop": [{
+						"0010_HL": {
+							HL03: payload.BillingCity,
+							HL01: payload.BillingCounty
+						}
+					}]
+				}
+			}]
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<x12:write doc:name="Write" doc:id="3695bb8b-2dea-4f1c-9b53-84750b42c1c9" outputEdiMimeType="APPLICATION_EDIX12" config-ref="X12_EDI_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="013bdb8f-e9e3-43f1-ac31-51c392fab9d4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message" : payload
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="14f45e7f-7609-46f3-b32d-f8b96c210c1e" >
+				<ee:transform doc:name="Transform Message" doc:id="e115add1-3bbe-43d4-b80d-469d6be34188" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"message":error.description
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-continue>
+		</error-handler>
+	</flow>
+</mule>

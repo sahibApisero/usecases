@@ -1,0 +1,27 @@
+#%RAML 1.0
+title: helloworld
+version: 1.0.0
+description: This is interface raml for usecase4 to check security scheme fragment type and will return hello world message on successfull get request
+
+securitySchemes:
+  basicAuth: !include exchange_modules/3df37318-4d77-4516-8e2c-e369f6a25f1f/basicauth/1.0.0/basicauth.raml
+
+/usecase4:
+  get:
+    description: This method checks for hello world message after basic auth verification.
+    securedBy:
+      - basicAuth
+    responses:
+      200:
+        description: Works Perfectly
+
+/usecase5:
+  get:
+    description: This method send text message using twilio after successfull basic auth verification.
+    securedBy:
+      - basicAuth
+    responses:
+      200:
+        description: Text Message Sent Successfully
+      
+        
